@@ -1,0 +1,345 @@
+{
+  "name": "Simple GA4 + Search Console Traffic Report to Google Sheets",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "1",
+      "name": "Run Manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 160]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [1],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "2",
+      "name": "Every Monday at 8am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 340]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "config-ga",
+              "name": "ga4_property_id",
+              "value": "REPLACE_WITH_GA4_PROPERTY_ID",
+              "type": "string"
+            },
+            {
+              "id": "config-gsc",
+              "name": "search_console_site_url",
+              "value": "sc-domain:example.com",
+              "type": "string"
+            },
+            {
+              "id": "config-name",
+              "name": "spreadsheet_name",
+              "value": "Website Traffic Report",
+              "type": "string"
+            },
+            {
+              "id": "config-days",
+              "name": "days",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "config-recipients",
+              "name": "report_recipients",
+              "value": "person1@example.com, person2@example.com",
+              "type": "string"
+            },
+            {
+              "id": "config-from-email",
+              "name": "report_from_email",
+              "value": "reports@example.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3",
+      "name": "CONFIG - Edit These Values",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [260, 250]
+    },
+    {
+      "parameters": {
+        "url": "=https://analyticsdata.googleapis.com/v1beta/properties/{{ $json.ga4_property_id }}:runReport",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { dateRanges: [{ startDate: $json.days + 'daysAgo', endDate: 'yesterday' }], metrics: [{name:'sessions'},{name:'totalUsers'},{name:'newUsers'},{name:'screenPageViews'},{name:'engagedSessions'},{name:'averageSessionDuration'},{name:'bounceRate'}] } }}",
+        "options": {}
+      },
+      "id": "4",
+      "name": "GA4 - Overall Totals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 250]
+    },
+    {
+      "parameters": {
+        "url": "=https://analyticsdata.googleapis.com/v1beta/properties/{{ $('CONFIG - Edit These Values').first().json.ga4_property_id }}:runReport",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { dateRanges: [{ startDate: $('CONFIG - Edit These Values').first().json.days + 'daysAgo', endDate: 'yesterday' }], dimensions: [{name:'sessionDefaultChannelGroup'},{name:'sessionSourceMedium'}], metrics: [{name:'sessions'},{name:'totalUsers'},{name:'engagedSessions'}], orderBys: [{metric:{metricName:'sessions'},desc:true}], limit: 100 } }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "GA4 - Traffic Sources",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [760, 250]
+    },
+    {
+      "parameters": {
+        "url": "=https://analyticsdata.googleapis.com/v1beta/properties/{{ $('CONFIG - Edit These Values').first().json.ga4_property_id }}:runReport",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { dateRanges: [{ startDate: $('CONFIG - Edit These Values').first().json.days + 'daysAgo', endDate: 'yesterday' }], dimensions: [{name:'landingPagePlusQueryString'}], metrics: [{name:'sessions'},{name:'totalUsers'},{name:'engagedSessions'}], orderBys: [{metric:{metricName:'sessions'},desc:true}], limit: 100 } }}",
+        "options": {}
+      },
+      "id": "6",
+      "name": "GA4 - Landing Pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 250]
+    },
+    {
+      "parameters": {
+        "url": "=https://www.googleapis.com/webmasters/v3/sites/{{ encodeURIComponent($('CONFIG - Edit These Values').first().json.search_console_site_url) }}/searchAnalytics/query",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { startDate: $now.minus({days: $('CONFIG - Edit These Values').first().json.days}).toFormat('yyyy-MM-dd'), endDate: $now.minus({days: 1}).toFormat('yyyy-MM-dd'), dimensions: ['query'], rowLimit: 100 } }}",
+        "options": {}
+      },
+      "id": "7",
+      "name": "Search Console - Queries",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1240, 250]
+    },
+    {
+      "parameters": {
+        "url": "=https://www.googleapis.com/webmasters/v3/sites/{{ encodeURIComponent($('CONFIG - Edit These Values').first().json.search_console_site_url) }}/searchAnalytics/query",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { startDate: $now.minus({days: $('CONFIG - Edit These Values').first().json.days}).toFormat('yyyy-MM-dd'), endDate: $now.minus({days: 1}).toFormat('yyyy-MM-dd'), dimensions: ['page'], rowLimit: 100 } }}",
+        "options": {}
+      },
+      "id": "8",
+      "name": "Search Console - Pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1480, 250]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('CONFIG - Edit These Values').first().json;\nconst gaTotal = $('GA4 - Overall Totals').first().json;\nconst gaSources = $('GA4 - Traffic Sources').first().json;\nconst gaLanding = $('GA4 - Landing Pages').first().json;\nconst gscQueries = $('Search Console - Queries').first().json;\nconst gscPages = $('Search Console - Pages').first().json;\nconst metric = (report, name) => { const i = (report.metricHeaders || []).findIndex(h => h.name === name); return i < 0 ? 0 : Number(report.rows?.[0]?.metricValues?.[i]?.value || 0); };\nconst gaRows = (report, d, m) => (report.rows || []).map(r => [...d.map((_, i) => r.dimensionValues?.[i]?.value || ''), ...m.map((_, i) => Number(r.metricValues?.[i]?.value || 0))]);\nconst gscRows = report => (report.rows || []).map(r => [r.keys?.[0] || '', Number(r.clicks || 0), Number(r.impressions || 0), Number(r.ctr || 0), Number(r.position || 0)]);\nconst sessions = metric(gaTotal, 'sessions'), users = metric(gaTotal, 'totalUsers'), newUsers = metric(gaTotal, 'newUsers'), views = metric(gaTotal, 'screenPageViews'), engaged = metric(gaTotal, 'engagedSessions');\nconst duration = metric(gaTotal, 'averageSessionDuration'), bounce = metric(gaTotal, 'bounceRate');\nconst sourceData = gaRows(gaSources, ['channel','sourceMedium'], ['sessions','totalUsers','engagedSessions']);\nconst landingData = gaRows(gaLanding, ['landingPage'], ['sessions','totalUsers','engagedSessions']);\nconst queryData = gscRows(gscQueries), pageData = gscRows(gscPages);\nconst clicks = queryData.reduce((a,r)=>a+r[1],0), impressions = queryData.reduce((a,r)=>a+r[2],0);\nconst ctr = impressions ? clicks/impressions : 0;\nconst avgPosition = impressions ? queryData.reduce((a,r)=>a+(r[4]*r[2]),0)/impressions : 0;\nconst topSources = sourceData.slice(0,5).map(r => [r[0],r[1],r[2],sessions?r[2]/sessions:0,r[2]?r[4]/r[2]:0,r[3]]);\nconst topLanding = landingData.slice(0,5).map(r => [r[0],r[1],sessions?r[1]/sessions:0,r[1]?r[3]/r[1]:0,r[2],'']);\nconst opportunities = queryData.filter(r => r[2] >= 10 && r[4] <= 20).sort((a,b) => (b[2]*(1-b[3]))-(a[2]*(1-a[3]))).slice(0,5).map(r => [...r, r[4] <= 10 ? 'Improve title/meta to win more clicks' : 'Improve page to reach page one']);\nwhile (topSources.length < 5) topSources.push(['','','','','','']); while (topLanding.length < 5) topLanding.push(['','','','','','']); while (opportunities.length < 5) opportunities.push(['','','','','','']);\nconst topSource = sourceData[0] || ['', '', 0, 0, 0], topPage = landingData[0] || ['',0,0,0], topQuery = queryData[0] || ['',0,0,0,0], topSearchPage = pageData[0] || ['',0,0,0,0];\nconst sourceShare = sessions ? topSource[2]/sessions : 0, engagementRate = sessions ? engaged/sessions : 0, pagesPerSession = sessions ? views/sessions : 0;\nconst insights = [\n`Traffic: ${sessions.toLocaleString()} sessions from ${users.toLocaleString()} users; ${Math.round(engagementRate*100)}% were engaged.`,\n`Acquisition: ${topSource[0] || 'No channel'} is the leading channel (${Math.round(sourceShare*100)}% of sessions), led by ${topSource[1] || 'no source data'}.`,\n`Content: ${topPage[0] || 'No landing-page data'} is the top entry page with ${(topPage[1]||0).toLocaleString()} sessions.`,\n`Search: ${(clicks||0).toLocaleString()} clicks from ${(impressions||0).toLocaleString()} impressions (${(ctr*100).toFixed(1)}% CTR) across the top 100 queries.`,\nopportunities[0][0] ? `Priority: improve “${opportunities[0][0]}” — ${opportunities[0][2]} impressions at position ${Number(opportunities[0][4]).toFixed(1)}.` : 'Priority: build more search visibility; no high-impression near-page-one query was found.'\n];\nconst overview = [\n['EXECUTIVE WEBSITE PERFORMANCE SUMMARY','','','','',''],\n[`Last ${cfg.days} days ending yesterday`,`Generated ${$now.toFormat('MMM d, yyyy')}`,cfg.search_console_site_url,'','',''],\n['EXECUTIVE SNAPSHOT','','','','',''],\n['Sessions','Users','Page Views','Engagement Rate','Pages / Session','Avg. Session (sec)'],\n[sessions,users,views,engagementRate,pagesPerSession,duration],\n['New Users','Estimated Returning','Bounce Rate','Engaged Sessions','Search Clicks','Search Impressions'],\n[newUsers,Math.max(0,users-newUsers),bounce,engaged,clicks,impressions],\n['','','','','',''],\n['ACQUISITION: TOP TRAFFIC SOURCES','','','','',''],\n['Channel','Source / Medium','Sessions','Traffic Share','Engagement Rate','Users'],...topSources,\n['','','','','',''],\n['CONTENT: TOP LANDING PAGES','','','','',''],\n['Landing Page','Sessions','Traffic Share','Engagement Rate','Users',''],...topLanding,\n['','','','','',''],\n['ORGANIC SEARCH SNAPSHOT','','','','',''],\n['Clicks','Impressions','CTR','Avg. Position','Top Query','Top Search Page'],\n[clicks,impressions,ctr,avgPosition,topQuery[0],topSearchPage[0]],\n['','','','','',''],\n['SEO OPPORTUNITIES','','','','',''],\n['Query','Clicks','Impressions','CTR','Avg. Position','Recommended Action'],...opportunities,\n['','','','','',''],\n['ANALYST TAKEAWAYS','','','','',''],...insights.map(x=>[x,'','','','',''])\n];\nconst sources = [['Channel','Source / medium','Sessions','Users','Engaged sessions'], ...sourceData];\nconst landing = [['Landing page','Sessions','Users','Engaged sessions'], ...landingData];\nconst queries = [['Search query','Clicks','Impressions','CTR','Average position'], ...queryData];\nconst pages = [['Search result page','Clicks','Impressions','CTR','Average position'], ...pageData];\nreturn [{json:{spreadsheetTitle:`${cfg.spreadsheet_name} - ${$now.toFormat('yyyy-MM-dd')}`,batchUpdateBody:{valueInputOption:'USER_ENTERED',data:[{range:'Overview!A1',values:overview},{range:'Traffic Sources!A1',values:sources},{range:'Landing Pages!A1',values:landing},{range:'Search Queries!A1',values:queries},{range:'Search Pages!A1',values:pages}]}}}];"
+      },
+      "id": "9",
+      "name": "Prepare Sheet Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1720, 250]
+    },
+    {
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { properties: { title: $json.spreadsheetTitle }, sheets: [ { properties: { title: 'Overview' } }, { properties: { title: 'Traffic Sources' } }, { properties: { title: 'Landing Pages' } }, { properties: { title: 'Search Queries' } }, { properties: { title: 'Search Pages' } } ] } }}",
+        "options": {}
+      },
+      "id": "10",
+      "name": "Create Google Spreadsheet",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1960, 250]
+    },
+    {
+      "parameters": {
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}/values:batchUpdate",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Prepare Sheet Data').first().json.batchUpdateBody }}",
+        "options": {}
+      },
+      "id": "11",
+      "name": "Write All Report Tabs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2200, 250]
+    },
+    {
+      "parameters": {
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Create Google Spreadsheet').first().json.spreadsheetId }}:batchUpdate",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { requests: [ { updateSheetProperties: { properties: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, gridProperties: { frozenRowCount: 4, hideGridlines: true } }, fields: 'gridProperties.frozenRowCount,gridProperties.hideGridlines' } }, { updateDimensionProperties: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 285 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 6 }, properties: { pixelSize: 145 }, fields: 'pixelSize' } }, { mergeCells: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 6 }, mergeType: 'MERGE_ALL' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.04, green: 0.12, blue: 0.2 }, textFormat: { foregroundColor: { red: 1, green: 1, blue: 1 }, bold: true, fontSize: 18 }, horizontalAlignment: 'LEFT', verticalAlignment: 'MIDDLE' } }, fields: 'userEnteredFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.89, green: 0.94, blue: 0.95 }, textFormat: { foregroundColor: { red: 0.18, green: 0.28, blue: 0.32 }, italic: true, fontSize: 10 } } }, fields: 'userEnteredFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 2, endRowIndex: 42, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat.verticalAlignment,userEnteredFormat.wrapStrategy' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 3, endRowIndex: 7, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.96, green: 0.98, blue: 0.98 } } }, fields: 'userEnteredFormat.backgroundColor' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 3, endRowIndex: 4, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { textFormat: { bold: true, foregroundColor: { red: 0.25, green: 0.35, blue: 0.38 } }, horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat.textFormat,userEnteredFormat.horizontalAlignment' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 4, endRowIndex: 5, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { textFormat: { bold: true, fontSize: 15, foregroundColor: { red: 0.02, green: 0.45, blue: 0.48 } }, horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat.textFormat,userEnteredFormat.horizontalAlignment' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 5, endRowIndex: 6, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { textFormat: { bold: true, foregroundColor: { red: 0.25, green: 0.35, blue: 0.38 } }, horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat.textFormat,userEnteredFormat.horizontalAlignment' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 6, endRowIndex: 7, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { textFormat: { bold: true, fontSize: 13 }, horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat.textFormat,userEnteredFormat.horizontalAlignment' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 9, endRowIndex: 35, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { borders: { bottom: { style: 'SOLID', color: { red: 0.85, green: 0.88, blue: 0.89 } } } } }, fields: 'userEnteredFormat.borders' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 9, endRowIndex: 10, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.82, green: 0.91, blue: 0.91 }, textFormat: { bold: true } } }, fields: 'userEnteredFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 17, endRowIndex: 18, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.82, green: 0.91, blue: 0.91 }, textFormat: { bold: true } } }, fields: 'userEnteredFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 25, endRowIndex: 26, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.82, green: 0.91, blue: 0.91 }, textFormat: { bold: true } } }, fields: 'userEnteredFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 29, endRowIndex: 30, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.82, green: 0.91, blue: 0.91 }, textFormat: { bold: true } } }, fields: 'userEnteredFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 4, endRowIndex: 35, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '#,##0.0' } } }, fields: 'userEnteredFormat.numberFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 4, endRowIndex: 5, startColumnIndex: 3, endColumnIndex: 4 }, cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.0%' } } }, fields: 'userEnteredFormat.numberFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 6, endRowIndex: 7, startColumnIndex: 2, endColumnIndex: 3 }, cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.0%' } } }, fields: 'userEnteredFormat.numberFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 10, endRowIndex: 15, startColumnIndex: 3, endColumnIndex: 5 }, cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.0%' } } }, fields: 'userEnteredFormat.numberFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 18, endRowIndex: 23, startColumnIndex: 2, endColumnIndex: 4 }, cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.0%' } } }, fields: 'userEnteredFormat.numberFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 26, endRowIndex: 27, startColumnIndex: 2, endColumnIndex: 3 }, cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.0%' } } }, fields: 'userEnteredFormat.numberFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 30, endRowIndex: 35, startColumnIndex: 3, endColumnIndex: 4 }, cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.0%' } } }, fields: 'userEnteredFormat.numberFormat' } }, { mergeCells: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 2, endRowIndex: 3, startColumnIndex: 0, endColumnIndex: 6 }, mergeType: 'MERGE_ALL' } }, { mergeCells: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 8, endRowIndex: 9, startColumnIndex: 0, endColumnIndex: 6 }, mergeType: 'MERGE_ALL' } }, { mergeCells: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 16, endRowIndex: 17, startColumnIndex: 0, endColumnIndex: 6 }, mergeType: 'MERGE_ALL' } }, { mergeCells: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 24, endRowIndex: 25, startColumnIndex: 0, endColumnIndex: 6 }, mergeType: 'MERGE_ALL' } }, { mergeCells: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 28, endRowIndex: 29, startColumnIndex: 0, endColumnIndex: 6 }, mergeType: 'MERGE_ALL' } }, { mergeCells: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 36, endRowIndex: 37, startColumnIndex: 0, endColumnIndex: 6 }, mergeType: 'MERGE_ALL' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 2, endRowIndex: 37, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } }, backgroundColor: { red: 0.02, green: 0.45, blue: 0.48 } } }, fields: 'userEnteredFormat.textFormat,userEnteredFormat.backgroundColor' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 37, endRowIndex: 42, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.96, green: 0.98, blue: 0.98 }, textFormat: { foregroundColor: { red: 0.08, green: 0.18, blue: 0.22 } } } }, fields: 'userEnteredFormat' } } ] } }}",
+        "options": {}
+      },
+      "id": "14",
+      "name": "Format Executive Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2420, 250]
+    },
+    {
+      "parameters": {
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Create Google Spreadsheet').first().json.spreadsheetId }}:batchUpdate",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { requests: [ { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 3, endRowIndex: 7, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.96, green: 0.98, blue: 0.98 }, textFormat: { foregroundColor: { red: 0.08, green: 0.18, blue: 0.22 }, bold: false }, horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.textFormat,userEnteredFormat.horizontalAlignment' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 3, endRowIndex: 4, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { textFormat: { foregroundColor: { red: 0.25, green: 0.35, blue: 0.38 }, bold: true, fontSize: 10 } } }, fields: 'userEnteredFormat.textFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 4, endRowIndex: 5, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { textFormat: { foregroundColor: { red: 0.02, green: 0.45, blue: 0.48 }, bold: true, fontSize: 15 } } }, fields: 'userEnteredFormat.textFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 5, endRowIndex: 6, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { textFormat: { foregroundColor: { red: 0.25, green: 0.35, blue: 0.38 }, bold: true, fontSize: 10 } } }, fields: 'userEnteredFormat.textFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 6, endRowIndex: 7, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { textFormat: { foregroundColor: { red: 0.08, green: 0.18, blue: 0.22 }, bold: true, fontSize: 13 } } }, fields: 'userEnteredFormat.textFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 9, endRowIndex: 35, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { backgroundColor: { red: 1, green: 1, blue: 1 }, textFormat: { foregroundColor: { red: 0.08, green: 0.18, blue: 0.22 }, bold: false, fontSize: 10 } } }, fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.textFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 9, endRowIndex: 10, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.82, green: 0.91, blue: 0.91 }, textFormat: { foregroundColor: { red: 0.08, green: 0.18, blue: 0.22 }, bold: true } } }, fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.textFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 17, endRowIndex: 18, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.82, green: 0.91, blue: 0.91 }, textFormat: { foregroundColor: { red: 0.08, green: 0.18, blue: 0.22 }, bold: true } } }, fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.textFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 25, endRowIndex: 26, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.82, green: 0.91, blue: 0.91 }, textFormat: { foregroundColor: { red: 0.08, green: 0.18, blue: 0.22 }, bold: true } } }, fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.textFormat' } }, { repeatCell: { range: { sheetId: $('Create Google Spreadsheet').first().json.sheets[0].properties.sheetId, startRowIndex: 29, endRowIndex: 30, startColumnIndex: 0, endColumnIndex: 6 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.82, green: 0.91, blue: 0.91 }, textFormat: { foregroundColor: { red: 0.08, green: 0.18, blue: 0.22 }, bold: true } } }, fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.textFormat' } } ] } }}",
+        "options": {}
+      },
+      "id": "15",
+      "name": "Finalize Executive Styling",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 250]
+    },
+    {
+      "parameters": {
+        "url": "=https://www.googleapis.com/drive/v3/files/{{ $('Create Google Spreadsheet').first().json.spreadsheetId }}/permissions",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { type: 'anyone', role: 'reader', allowFileDiscovery: false } }}",
+        "options": {}
+      },
+      "id": "16",
+      "name": "Share Report - Anyone With Link",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2860, 250]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "result-url",
+              "name": "spreadsheet_url",
+              "value": "=https://docs.google.com/spreadsheets/d/{{ $('Create Google Spreadsheet').first().json.spreadsheetId }}/edit",
+              "type": "string"
+            },
+            {
+              "id": "result-status",
+              "name": "status",
+              "value": "Report created successfully",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "12",
+      "name": "Report Link",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [3080, 250]
+    },
+    {
+      "parameters": {
+        "resource": "email",
+        "operation": "send",
+        "fromEmail": "={{ $('CONFIG - Edit These Values').first().json.report_from_email }}",
+        "toEmail": "={{ $('CONFIG - Edit These Values').first().json.report_recipients }}",
+        "subject": "=Website Traffic Report — {{ $now.toFormat('MMM d, yyyy') }}",
+        "emailFormat": "html",
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:620px;color:#142d38\"><h2 style=\"color:#073b4c\">Your website traffic report is ready</h2><p>The executive traffic report for the last {{ $('CONFIG - Edit These Values').first().json.days }} days has been generated.</p><p><a href=\"{{ $('Report Link').first().json.spreadsheet_url }}\" style=\"display:inline-block;background:#087f83;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:4px;font-weight:bold\">Open Traffic Report</a></p><p style=\"font-size:12px;color:#607780\">Anyone with this link can view the spreadsheet. No Google sign-in is required.</p></div>",
+        "options": {}
+      },
+      "id": "17",
+      "name": "Email Report Link",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [3300, 250]
+    },
+    {
+      "parameters": {
+        "content": "## SETUP BEFORE FIRST RUN\n1. Edit **CONFIG - Edit These Values**.\n2. Add the GA4 Property ID and exact Search Console property.\n3. Add comma-separated report recipients and the SMTP sender address.\n4. Select the same **Google OAuth2 API** credential in every HTTP Request node.\n5. Add the Drive File scope and enable Google Drive API.\n6. Select an SMTP credential in **Email Report Link**.\n7. Run manually once. The report is shared as Anyone with the link — Viewer, then emailed.\n\nThe scheduled trigger runs every Monday at 8:00 AM using your n8n workflow timezone.",
+        "height": 430,
+        "width": 620,
+        "color": 4
+      },
+      "id": "13",
+      "name": "Setup Instructions",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [230, -250]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Run Manually": {"main":[[{"node":"CONFIG - Edit These Values","type":"main","index":0}]]},
+    "Every Monday at 8am": {"main":[[{"node":"CONFIG - Edit These Values","type":"main","index":0}]]},
+    "CONFIG - Edit These Values": {"main":[[{"node":"GA4 - Overall Totals","type":"main","index":0}]]},
+    "GA4 - Overall Totals": {"main":[[{"node":"GA4 - Traffic Sources","type":"main","index":0}]]},
+    "GA4 - Traffic Sources": {"main":[[{"node":"GA4 - Landing Pages","type":"main","index":0}]]},
+    "GA4 - Landing Pages": {"main":[[{"node":"Search Console - Queries","type":"main","index":0}]]},
+    "Search Console - Queries": {"main":[[{"node":"Search Console - Pages","type":"main","index":0}]]},
+    "Search Console - Pages": {"main":[[{"node":"Prepare Sheet Data","type":"main","index":0}]]},
+    "Prepare Sheet Data": {"main":[[{"node":"Create Google Spreadsheet","type":"main","index":0}]]},
+    "Create Google Spreadsheet": {"main":[[{"node":"Write All Report Tabs","type":"main","index":0}]]},
+    "Write All Report Tabs": {"main":[[{"node":"Format Executive Summary","type":"main","index":0}]]},
+    "Format Executive Summary": {"main":[[{"node":"Finalize Executive Styling","type":"main","index":0}]]},
+    "Finalize Executive Styling": {"main":[[{"node":"Share Report - Anyone With Link","type":"main","index":0}]]},
+    "Share Report - Anyone With Link": {"main":[[{"node":"Report Link","type":"main","index":0}]]},
+    "Report Link": {"main":[[{"node":"Email Report Link","type":"main","index":0}]]}
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Toronto"
+  },
+  "versionId": "a26db3a5-f10d-4560-8a9c-4dbb811c3221",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
