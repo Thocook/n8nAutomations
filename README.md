@@ -32,3 +32,5 @@ After creating the report, the workflow sets the spreadsheet to **Anyone with th
 9. When the test succeeds, activate the workflow. It runs Mondays at 8:00 AM in the workflow timezone.
 
 The workflow is inactive on import and contains no credential IDs or secrets. Anyone who receives the generated link can view that report, so do not use public-link sharing for sensitive analytics.
+
+
